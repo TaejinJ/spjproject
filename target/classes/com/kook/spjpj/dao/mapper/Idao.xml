@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+	PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+	"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+	<!-- SQL Mapper 작성방법 참고
+	: https://atoz-develop.tistory.com/entry/MyBatis-%EC%84%A4%EC%A0%95-
+	%ED%8C%8C%EC%9D%BC-SQL-Mapper-%EC%9E%91%EC%84%B1-%EB%B0%A9%EB%B2%95
+	 -->
+<mapper namespace = "com.kook.spjpj.dao.Dao">
+<!-- <mapper>의 namespace 속성은 자바의 패키지처럼 여러개의 SQL문을 묶는 용도. -->
+
+
+	<!-- join -->
+	<insert id="join" parameterType="com.kook.spjpj.dto.JoinDto">
+	<!-- id: 각 SQL문을 구분 -->
+	<!-- parameterType: 이 속성에 지정한 객체의 프로퍼티값이 SQL문의 입력 파라미터에 지정된다. -->
+	<!-- MyBatis에서는 입력 파라미터를 '#{프로퍼티}'로 표시한다. -->
+		insert into SPJDB(PID,PNIC,PPW,PNAME,PBIRTH,PPROFILE) 
+		values(#{pid},#{pnic},#{ppw},#{pname},#{pbirth},#{pprofile})
+	</insert>
+	
+	<!-- login -->
+	<select id="login" parameterType="String" resultType="com.kook.spjpj.dto.JoinDto">
+		SELECT * FROM SPJDB WHERE PID = #{pid}
+	</select>	
+	
+	
+		<!--  board  -->
+	<!--  ![CDATA는 태드에서 사용하는 특수 문자를 sql에서 사용시 이를 sql의 문자로 처리  -->
+	<!--  rownum은 가상 행번호  -->
+	<!--  A는 실제 테이블에서 select한 가상테이블인데 가상행번호가 추가된 테이블이다  -->
+	<select id="list" resultType="com.kook.spjpj.dto.BDto">
+		<![CDATA[ select * from(select A.*,rownum as rnum from(select * from spj_freeboard order by bgroup desc,bstep asc)A) where rnum < 11 ]]>
+	</select>
+	
+	<insert id="write" parameterType="com.kook.spjpj.dto.BDto"> 
+		insert into spj_freeboard (bId, bNic, bTitle, bContent, bHit, bGroup, bStep, bIndent) 
+		values(mvc_board_seq.nextval,#{bNic,jdbcType=VARCHAR},#{bTitle,jdbcType=VARCHAR},#{bContent,jdbcType=VARCHAR},0,mvc_board_seq.currval,0,0) 
+	</insert>
+	
+	<select id="contentView" parameterType="int" resultType="com.kook.spjpj.dto.BDto" >
+		SELECT * FROM SPJ_FREEBOARD WHERE BID = #{bId}
+	</select>	
+	
+	<update id="upHit" parameterType="int">
+		UPDATE SPJ_FREEBOARD SET BHIT = BHIT + 1 WHERE BID = #{bId}
+	</update>
+	
+	<update id="modify" parameterType="com.kook.spjpj.dto.BDto"> 
+		UPDATE SPJ_FREEBOARD SET BTITLE=#{bTitle},BCONTENT=#{bContent} WHERE BID = #{bId} 
+	</update>
+	
+	<delete id="delete" parameterType="int">
+		DELETE FROM SPJ_FREEBOARD WHERE BID = #{bId}
+	</delete>
+	
+	<select id="pageList" parameterType="int" resultType="com.kook.spjpj.dto.BDto">
+		<![CDATA[
+			SELECT * FROM(SELECT A.*,ROWNUM AS RNUM
+			FROM(SELECT * FROM SPJ_FREEBOARD ORDER BY BGROUP DESC,BSTEP ASC)A)
+			WHERE RNUM >= #{start} AND RNUM <= #{start} + 9
+		]]>
+	</select>
+	<!-- 댓글sql문 -->
+	<select id="reply_view" parameterType="int" resultType="com.kook.spjpj.dto.BDto">
+		SELECT * FROM SPJ_FREEBOARD WHERE BID = #{bId}
+	</select>
+	<insert id="reply" parameterType="com.kook.spjpj.dto.BDto"> 
+	insert into SPJ_FREEBOARD (bId, bNic, bTitle, bContent, bGroup, bStep, bIndent) 
+	values(mvc_board_seq.nextval,#{bNic},#{bTitle},#{bContent}, #{bGroup},#{bStep}+1,#{bIndent}+1)
+	 </insert>
+	 <update id="replyShape" parameterType="com.kook.spjpj.dto.BDto">
+		UPDATE SPJ_FREEBOARD SET BSTEP = BSTEP + 1 WHERE BGROUP=#{bGroup} AND BSTEP > #{bStep}
+	</update>
+	
+	<insert id="record" parameterType="com.kook.spjpj.dto.RDto">
+		INSERT INTO SPJ_RECORD1 (rcompany, rnic, rtime_from, rtime_to, rtime_day, rwage_hour, rwage_day)
+		VALUES (#{rcompany}, #{rnic}, #{rtime_from}, #{rtime_to}, #{rtime_day}, #{rwage_hour}, #{rwage_day})
+
+	</insert>
+	
+
+	<select id="wageBill" parameterType="String" resultType="com.kook.spjpj.dto.RDto">
+		SELECT * FROM SPJ_RECORD1 
+		WHERE RNIC = #{nic}
+		ORDER BY RCOMPANY ASC, RTIME_FROM ASC		
+	</select>
+
+	<!--  freeboard 댓글 목록  -->
+<!-- 	<select id = "free_replylist" resultType="com.kook.spjpj.dto.CDto" parameterType="com.kook.spjpj.dto.CDto">
+		select reply_rno, reply_content, reply_writer, reply_regdate from SPJ_FREEBOARD_REPLY where reply_bno=#{reply_bno}
+		order by reply_rno asc
+	</select>
+	
+	<select id="reply_contentView" parameterType="int" resultType="com.kook.spjpj.dto.CDto" >
+		SELECT * FROM SPJ_FREEBOARD_REPLY WHERE REVIEW_NUM = #{reply_rno}
+	</select>
+	
+	<insert id="free_replywrite" parameterType="com.kook.spjpj.dto.CDto"> 
+		insert into SPJ_FREEBOARD_REPLY (reply_rno, reply_bno, reply_content, reply_writer, reply_regdate) values(spj_freeboard_reply_seq.nextval,0,#{reply_content,jdbcType=VARCHAR},#{reply_writer,jdbcType=VARCHAR},sysdate) 
+		</insert>
+ -->
+<!--  review board  -->
+<select id="review_list" resultType="com.kook.spjpj.dto.ReDto">
+<![CDATA[ select * from(select A.*,rownum as rnum from(select * from spj_review order by review_num desc)A) where rnum < 11 ]]>
+</select>
+<insert id="review_write" parameterType="com.kook.spjpj.dto.ReDto"> insert into spj_review (review_num, user_id, review_goods_name, review_title, review_content, review_cnt, review_star, review_buy_opt, review_regdate) values(mvc_board_seq.nextval,#{user_id,jdbcType=VARCHAR},#{review_goods_name,jdbcType=VARCHAR},#{review_title,jdbcType=VARCHAR},#{review_content,jdbcType=VARCHAR},0,0,0,sysdate) </insert>
+<select id="review_contentView" parameterType="int" resultType="com.kook.spjpj.dto.ReDto"> SELECT * FROM SPJ_REVIEW WHERE REVIEW_NUM = #{review_num} </select>
+<update id="review_upHit" parameterType="int"> UPDATE SPJ_REVIEW SET BHIT = BHIT + 1 WHERE REVIEW_NUM = #{review_num} </update>
+<update id="review_modify" parameterType="com.kook.spjpj.dto.ReDto"> UPDATE SPJ_REVIEW SET review_title=#{review_title,jdbcType=VARCHAR},review_content=#{review_content,jdbcType=VARCHAR} WHERE REVIEW_NUM = #{review_num,jdbcType=VARCHAR} </update>
+<delete id="review_delete" parameterType="int"> DELETE FROM SPJ_REVIEW WHERE REVIEW_NUM = #{review_num} </delete>
+<select id="review_pageList" parameterType="int" resultType="com.kook.spjpj.dto.ReDto">
+<![CDATA[ SELECT * FROM(SELECT A.*,ROWNUM AS RNUM FROM(SELECT * FROM SPJ_REVIEW ORDER BY REVIEW_NUM ASC)A) WHERE RNUM >= #{start} AND RNUM <= #{start} + 9 ]]>
+</select>
+<!-- qna board  -->
+	<!--  ![CDATA는 태드에서 사용하는 특수 문자를 sql에서 사용시 이를 sql의 문자로 처리  -->
+	<!--  rownum은 가상 행번호  -->
+	<!--  A는 실제 테이블에서 select한 가상테이블인데 가상행번호가 추가된 테이블이다  -->
+	<select id="qlist" resultType="com.kook.spjpj.dto.QDto">
+		<![CDATA[ select * from(select A.*,rownum as rnum from(select * from qna_board order by qgroup desc,qstep asc)A) where rnum < 11 ]]>
+	</select>
+	
+	<insert id="qwrite" parameterType="com.kook.spjpj.dto.QDto">
+	 insert into qna_board (qId, qNic, qTitle, qContent, qHit, qGroup, qStep, qIndent) values(QBOARD_SEQ.nextval,#{qNic,jdbcType=VARCHAR},#{qTitle,jdbcType=VARCHAR},#{qContent,jdbcType=VARCHAR},0,QBOARD_SEQ.currval,0,0)
+	  </insert>
+	
+	<select id="qcontentView" parameterType="int" resultType="com.kook.spjpj.dto.QDto" >
+		SELECT * FROM qna_board WHERE qid = #{qId}
+	</select>	
+	
+	<update id="qupHit" parameterType="int">
+		UPDATE qna_board SET qHIT = qHIT + 1 WHERE qid = #{qId}
+	</update>
+	
+	<update id="qmodify" parameterType="com.kook.spjpj.dto.QDto">
+		UPDATE qna_board SET qTITLE=#{qTitle,jdbcType=VARCHAR},qcontent=#{qContent,jdbcType=VARCHAR}
+		WHERE qid = #{qId,jdbcType=VARCHAR}
+	</update>
+	<delete id="qdelete" parameterType="int">
+		DELETE FROM qna_board WHERE qID = #{qId}
+	</delete>
+	
+<select id="qpageList" parameterType="int" resultType="com.kook.spjpj.dto.QDto">
+		<![CDATA[
+			SELECT * FROM(SELECT A.*,ROWNUM AS RNUM
+			FROM(SELECT * FROM SPJ_FREEBOARD ORDER BY BGROUP DESC,BSTEP ASC)A)
+			WHERE RNUM >= #{start} AND RNUM <= #{start} + 9
+		]]>
+	</select>
+</mapper>
